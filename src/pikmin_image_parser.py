@@ -13,20 +13,13 @@ from scipy import stats
 
 # Load templates and return in an array
 def load_heart_templates():
-    # Load templates
-    template_full  = imread("../templates/template_full_heart.png")
-    template_half  = imread("../templates/template_half_heart.png")
-    template_empty = imread("../templates/template_empty_heart.png")
+    # Load templates and convert to grayscale
+    heart_templates = {}
+    for key in ["full", "half", "three_quarter", "empty"]:
+        heart_templates[key] = rgb2gray(imread("../templates/template_"+key+"_heart.png"))
 
-    # Convert to grayscale
-    template_full_gray = rgb2gray(template_full)
-    template_half_gray = rgb2gray(template_half)
-    template_empty_gray = rgb2gray(template_empty)
-
-    # Return array of images
-    return [template_full_gray,
-            template_half_gray,
-            template_empty_gray]
+    # Return array of templates
+    return heart_templates
 
 
 # Accepts path of image to scan
@@ -38,8 +31,8 @@ def get_heart_locations(image_path):
     # Find templates in image
     results = []
     heart_templates = load_heart_templates()
-    for template in heart_templates:
-        result_full  = match_template(image_gray, template)
+    for key, val in heart_templates.items():
+        result_full  = match_template(image_gray, val)
         results.append(result_full)
 
     # Show image
@@ -50,7 +43,7 @@ def get_heart_locations(image_path):
     # Get heart locations and draw them on the image
     heart_locations = []
     for template_result in results:
-        template_h, template_w = heart_templates[0].shape
+        template_h, template_w = heart_templates["full"].shape
         for x,y in peak_local_max(template_result, threshold_abs=0.9, exclude_border=20):
             rect = plt.Rectangle((y, x), template_w, template_h, edgecolor='g', facecolor='none')
             ax1.add_patch(rect)
@@ -138,15 +131,15 @@ def get_pikmin_heart_icon_count(pikmin_image):
     # Find templates in image
     results = []
     heart_templates = load_heart_templates()
-    for template in heart_templates:
-        result_full  = match_template(image_gray, template)
+    for key, val in heart_templates.items():
+        result_full  = match_template(image_gray, val)
         results.append(result_full)
 
 
     # Get heart locations
     heart_locations = []
     for template_result in results:
-        template_h, template_w = heart_templates[0].shape
+        template_h, template_w = heart_templates["full"].shape
         for x,y in peak_local_max(template_result, threshold_abs=0.9, exclude_border=10):
             heart_locations.append([x,y])
 
@@ -161,7 +154,7 @@ def get_pikmin_heart_icon_count(pikmin_image):
         # Convert to number of hearts
         # TODO this does not detect whether the last heart is empty
         #      or whether the final heart is full (4 hearts)
-        if left_heart < 40:
+        if left_heart < 43:
             return 4
         elif left_heart < 57:
             return 3
@@ -174,7 +167,7 @@ def get_pikmin_heart_icon_count(pikmin_image):
         plt.figure()
         plt.imshow(pikmin_image)
         plt.show()
-        heart_count = input("How many hearts? (-1 for nothing)")
+        heart_count = int(input("How many hearts? (-1 for nothing)"))
         plt.close()
 
         return heart_count
@@ -188,7 +181,13 @@ pikmin_images = partition_image(path_to_image, heart_y_coord)
 
 for i in range(len(pikmin_images)):
     pikmin_hearts = get_pikmin_heart_icon_count( pikmin_images[i] )
+
+    # If no hearts were found, this is because it's hidden behind
+    # a button or cut off the screen
+    if (pikmin_hearts < 0):
+        continue
+
     color = get_pikmin_color_by_name( pikmin_images[i] )
-    print(f"Pikmin {i} is {color} with {pikmin_hearts} heart icons")
+    print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons")
 
 
