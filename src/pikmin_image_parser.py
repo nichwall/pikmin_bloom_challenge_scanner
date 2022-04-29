@@ -240,23 +240,26 @@ def crop_image(image_path):
     return cropped
 
 # Determine whether a pikmin has been selected for the challenge
-# based on whether there's a line up the side
+# based on average color of bottom line of partitioned area
+# 
+# TODO definitely need to figure out a better way to do this for
+#      other sized images
 def check_if_selected(image):
-    # TODO this function doesn't work yet
-    # Convert to gray
-    image_gray = rgb2gray(image)
+    # Get last line of section
+    cropped_bottom = list(image[-1,:,0])
+    print(len(cropped_bottom))
+    # Get left half and right, ignoring middle in case pikmin
+    # below is sticking up
+    section_length = int(len(cropped_bottom)/4)
+    left_pixels  = cropped_bottom[0:section_length]
+    right_pixels = cropped_bottom[-section_length:]
 
-    selected_template = rgb2gray(imread("../templates/selected_side.png")[...,0:3])
+    # Average the parts to see if not white
+    left_avg = np.average(left_pixels)
+    right_avg = np.average(right_pixels)
 
-    matched = match_template(image_gray, selected_template)
-    peaks = peak_local_max(matched, threshold_abs=0.9, exclude_border=10)
-
-    plt.figure()
-    plt.imshow(image)
-    plt.show()
-
-    return len(peaks) != 0
-
+    threshold = 248
+    return left_avg < threshold and right_avg < threshold
 
 if __name__ == "__main__":
     #path_to_image = "../screenshots/white_not_full.jpg"
