@@ -10,6 +10,8 @@ from skimage.color import rgb2gray
 
 from scipy import stats
 
+#import cv2
+
 
 # Load templates and return in an array
 def load_heart_templates():
@@ -23,17 +25,15 @@ def load_heart_templates():
 
 
 # Accepts path of image to scan
-def get_heart_locations(image_path):
+def get_heart_locations(image):
     # Load image and convert to grayscale
-    image = imread(image_path)
     image_gray = rgb2gray(image)
 
     # Find templates in image
     results = []
     heart_templates = load_heart_templates()
     for key, val in heart_templates.items():
-        result_full  = match_template(image_gray, val)
-        results.append(result_full)
+        results.append( match_template(image_gray, val) )
 
     # Show image
     fig = plt.figure(figsize=(1,1))
@@ -63,7 +63,7 @@ def get_heart_locations(image_path):
 # heart Y location
 # 
 # Returns array of pikmin images
-def partition_image(image_path, heart_y_coord):
+def partition_image(image, heart_y_coord):
     # Get distance between Y coordinates to determine how
     # tall a partition should be
     heart_y_dist = stats.mode( np.diff(heart_y_coord) )[0][0]
@@ -78,8 +78,6 @@ def partition_image(image_path, heart_y_coord):
     partition_bot = heart_y_coord + 30
 
     # Get image shape
-    # Load image
-    image = imread(image_path)
     print(f"Image shape: {image.shape}")
 
     # Iterate through pikmin for cropping
@@ -88,6 +86,10 @@ def partition_image(image_path, heart_y_coord):
     pikmin_images = []
     for row_idx in range(len(heart_y_coord)):
         for col_idx in range(len(partition_sides)-1):
+            # Check if too far up the page
+            if partition_top[row_idx] < 0:
+                continue
+
             pikmin_image = image[partition_top[row_idx]:partition_bot[row_idx], partition_sides[col_idx]:partition_sides[col_idx+1]]
             pikmin_images.append(pikmin_image)
 
@@ -127,24 +129,31 @@ def get_pikmin_color_by_name(pikmin_image):
 # and currently only returns how many heart icons there are
 def get_pikmin_heart_icon_count(pikmin_image):
     image_gray = rgb2gray(pikmin_image)
-
+    
     # Find templates in image
     results = []
     heart_templates = load_heart_templates()
     for key, val in heart_templates.items():
-        result_full  = match_template(image_gray, val)
-        results.append(result_full)
+        results.append( match_template(image_gray, val) )
 
 
-    # Get heart locations
+    # Get all heart locations
     heart_locations = []
     for template_result in results:
         template_h, template_w = heart_templates["full"].shape
         for x,y in peak_local_max(template_result, threshold_abs=0.9, exclude_border=10):
             heart_locations.append([x,y])
+    # Get full heart locations
+    full_heart_locations = []
+    for x,y in peak_local_max(results[0], threshold_abs=0.9, exclude_border=10):
+        full_heart_locations.append(y)
+    if len(full_heart_locations) != 0:
+        last_full_position = max(full_heart_locations)
+    else:
+        last_full_position = 0
 
 
-    # Get X coordinate of top of hearts
+    # Get X coordinate of left heart
     try:
         heart_x_coord = np.unique( np.transpose(heart_locations)[1] )
         heart_x_coord.sort()
@@ -153,15 +162,18 @@ def get_pikmin_heart_icon_count(pikmin_image):
 
         # Convert to number of hearts
         # TODO this does not detect whether the last heart is empty
-        #      or whether the final heart is full (4 hearts)
         if left_heart < 43:
-            return 4
+            # Check if last heart is a full heart
+            if last_full_position > 105:
+                return 4
+            else:
+                return 3
         elif left_heart < 57:
-            return 3
-        elif left_heart < 67:
             return 2
-        else:
+        elif left_heart < 67:
             return 1
+        else:
+            return 0
     except:
         plt.ion()
         plt.figure()
@@ -172,22 +184,38 @@ def get_pikmin_heart_icon_count(pikmin_image):
 
         return heart_count
 
+def crop_image(image_path):
+    # TODO need to change this to detect the top and bottom
+    # of selection screen
 
-path_to_image = "../screenshots/full_hearts.jpg"
-#path_to_image = "../screenshots/small_hearts.jpg"
+    # Load image and crop top/bottom
+    image = imread(image_path)
+    print(image.shape)
+    cropped = image[410:1650,:,:]
 
-heart_y_coord = get_heart_locations(path_to_image)
-pikmin_images = partition_image(path_to_image, heart_y_coord)
+    return cropped
 
-for i in range(len(pikmin_images)):
-    pikmin_hearts = get_pikmin_heart_icon_count( pikmin_images[i] )
+if __name__ == "__main__":
+    #path_to_image = "../screenshots/white_not_full.jpg"
+    #path_to_image = "../screenshots/full_hearts.jpg"
+    path_to_image = "../screenshots/small_hearts.jpg"
 
-    # If no hearts were found, this is because it's hidden behind
-    # a button or cut off the screen
-    if (pikmin_hearts < 0):
-        continue
+    cropped = crop_image(path_to_image)
 
-    color = get_pikmin_color_by_name( pikmin_images[i] )
-    print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons")
+    heart_y_coord = get_heart_locations(cropped)
+    pikmin_images = partition_image(cropped, heart_y_coord)
+
+    print(len(pikmin_images))
+
+    for i in range(len(pikmin_images)):
+        pikmin_hearts = get_pikmin_heart_icon_count( pikmin_images[i] )
+
+        # If no hearts were found, this is because it's hidden behind
+        # a button or cut off the screen
+        if (pikmin_hearts < 0):
+            continue
+
+        color = get_pikmin_color_by_name( pikmin_images[i] )
+        print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons")
 
 
