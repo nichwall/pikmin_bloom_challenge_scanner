@@ -16,7 +16,7 @@ def load_heart_templates():
     # Load templates and convert to grayscale
     heart_templates = {}
     for key in ["full", "half", "three_quarter", "empty"]:
-        heart_templates[key] = rgb2gray(imread("../templates/template_"+key+"_heart.png"))
+        heart_templates[key] = rgb2gray(imread("../templates/template_"+key+"_heart.png")[...,0:3])
 
     # Return array of templates
     return heart_templates
@@ -99,7 +99,7 @@ def get_pikmin_color_by_name(pikmin_image):
     # Load color templates and convert to grayscale
     color_templates = {}
     for key in ["red", "yellow", "blue", "purple", "white", "winged"]:
-        color_templates[key] = rgb2gray(imread("../templates/color_"+key+".png"))
+        color_templates[key] = rgb2gray(imread("../templates/color_"+key+".png")[...,0:3])
 
     # Convert to grayscale
     image_gray = rgb2gray(pikmin_image)
@@ -173,8 +173,8 @@ def get_pikmin_heart_icon_count(pikmin_image):
         return heart_count
 
 
-#path_to_image = "../screenshots/full_hearts.jpg"
-path_to_image = "../screenshots/small_hearts.jpg"
+path_to_image = "../screenshots/full_hearts.jpg"
+#path_to_image = "../screenshots/small_hearts.jpg"
 
 heart_y_coord = get_heart_locations(path_to_image)
 pikmin_images = partition_image(path_to_image, heart_y_coord)
