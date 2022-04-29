@@ -3,14 +3,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from skimage.io import imread
+from skimage.io import imread, imsave
 from skimage.feature import match_template
 from skimage.feature import peak_local_max
 from skimage.color import rgb2gray
 
 from scipy import stats
 
-#import cv2
+import csv
+import glob
 
 
 # Load templates and return in an array
@@ -95,22 +96,57 @@ def partition_image(image, heart_y_coord):
 
     return pikmin_images
 
+# Load user named pikmin
+def get_pikmin_color_map():
+    # Get standard color name map
+    color_templates = {}
+
+    for key in ["red", "yellow", "blue", "purple", "white", "winged"]:
+        color_templates[key] = [rgb2gray(imread("../templates/color_"+key+".png")[...,0:3])]
+
+    #####################
+    # Set up custom color name map
+    #####################
+
+    # Set up variables
+    custom_template_dir = "../templates/custom/"
+    # Get all custom mapping files
+    files = glob.glob(custom_template_dir+"*.jpg")
+    for file in files:
+        color = file.split("_")[1].split(".")[0]
+        color_templates[color].append( rgb2gray(imread( file )) )
+
+    return color_templates
+
+# Store custom named pikmin for future use
+def store_pikmin_color_by_name(color_templates, color, image):
+    # Sanitize the color
+    color = ''.join([i for i in color if i.isalpha()]).lower()
+    # Figure out how many templates already exist for this pikmin
+    color_count = len(color_templates[color])
+    # Name of file to save in
+    fname = "../templates/custom/" + str(color_count) + "_" + color + ".jpg"
+    # Save file
+    imsave(fname, image)
+
+    return color
+
+
 # Determine what color the pikmin is
 # based on the name
 def get_pikmin_color_by_name(pikmin_image):
     # Load color templates and convert to grayscale
-    color_templates = {}
-    for key in ["red", "yellow", "blue", "purple", "white", "winged"]:
-        color_templates[key] = rgb2gray(imread("../templates/color_"+key+".png")[...,0:3])
+    color_templates = get_pikmin_color_map()
 
     # Convert to grayscale
     image_gray = rgb2gray(pikmin_image)
 
     # Determine which has a match
     for key, val in color_templates.items():
-        result = match_template(image_gray, val)
-        if len( peak_local_max(result, threshold_abs=0.9, exclude_border=20) ) > 0:
-            return key
+        for mapping in val:
+            result = match_template(image_gray, mapping)
+            if len( peak_local_max(result, threshold_abs=0.9, exclude_border=20) ) > 0:
+                return key
 
     # If no match, ask user for input
     plt.ion()
@@ -120,6 +156,9 @@ def get_pikmin_color_by_name(pikmin_image):
 
     color = input("What color is this pikmin?")
     plt.close()
+
+    # Store name of color of pikmin
+    color = store_pikmin_color_by_name(color_templates, color, pikmin_image[150:180,20:140,:])
 
     return color
 
@@ -186,7 +225,7 @@ def get_pikmin_heart_icon_count(pikmin_image):
 
 def crop_image(image_path):
     # TODO need to change this to detect the top and bottom
-    # of selection screen
+    # of selection screen for someone else's phone
 
     # Load image and crop top/bottom
     image = imread(image_path)
@@ -195,10 +234,11 @@ def crop_image(image_path):
 
     return cropped
 
+
 if __name__ == "__main__":
     #path_to_image = "../screenshots/white_not_full.jpg"
-    #path_to_image = "../screenshots/full_hearts.jpg"
-    path_to_image = "../screenshots/small_hearts.jpg"
+    path_to_image = "../screenshots/full_hearts.jpg"
+    #path_to_image = "../screenshots/small_hearts.jpg"
 
     cropped = crop_image(path_to_image)
 
