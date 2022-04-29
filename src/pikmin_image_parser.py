@@ -77,7 +77,7 @@ def partition_image(image, heart_y_coord):
 
     # Partition top
     # up ~200
-    partition_top = heart_y_coord - 200
+    partition_top = heart_y_coord - 220
 
     # Partition bottom
     # down ~20
@@ -116,12 +116,38 @@ def get_pikmin_color_map():
     # Set up variables
     custom_template_dir = "../templates/custom/"
     # Get all custom mapping files
-    files = glob.glob(custom_template_dir+"*.jpg")
+    files = glob.glob(custom_template_dir+"color_*.jpg")
     for file in files:
-        color = file.split("_")[1].split(".")[0]
+        color = file.split("color_")[-1].split("_")[0]
         color_templates[color].append( rgb2gray(imread( file )) )
 
     return color_templates
+
+def load_maturity_templates():
+    # Set up template dictionary
+    maturity_templates = {}
+    for key in ["bare", "bud", "leaf", "normal", "rare"]:
+        maturity_templates[key] = []
+
+    # Load templates and convert to grayscale
+    template_dir = "../templates/"
+    # Get all mappings
+    files = glob.glob(template_dir+"maturity*")
+    for file in files:
+        maturity = file.split("maturity_")[-1].split("_")[0]
+        maturity_templates[maturity].append( rgb2gray(imread( file )[...,0:3]) )
+
+    # Load custom maturity templates
+    custom_template_dir = "../templates/custom/"
+    # Get all custom mapping files
+    files = glob.glob(custom_template_dir+"maturity_*.jpg")
+    for file in files:
+        maturity = file.split("maturity_")[-1].split("_")[0]
+        #print(f" Loading custom maturity files: {file}  -> {maturity}")
+        maturity_templates[maturity].append( rgb2gray(imread( file )) )
+
+    return maturity_templates
+
 
 # Store custom named pikmin for future use
 def store_pikmin_color_by_name(color_templates, color, image):
@@ -130,11 +156,23 @@ def store_pikmin_color_by_name(color_templates, color, image):
     # Figure out how many templates already exist for this pikmin
     color_count = len(color_templates[color])
     # Name of file to save in
-    fname = "../templates/custom/" + str(color_count) + "_" + color + ".jpg"
+    fname = "../templates/custom/color_" + color + "_" + str(color_count) + ".jpg"
     # Save file
     imsave(fname, image)
 
     return color
+
+def store_pikmin_maturity_by_name(maturity_templates, maturity, image):
+    # Sanitize the color
+    maturity = ''.join([i for i in maturity if i.isalpha()]).lower()
+    # Figure out how many templates already exist for this pikmin
+    maturity_count = len(maturity_templates[maturity])
+    # Name of file to save in
+    fname = "../templates/custom/maturity_" + maturity + "_" + str(maturity_count) + ".jpg"
+    # Save file
+    imsave(fname, image)
+
+    return maturity
 
 
 # Determine what color the pikmin is
@@ -163,7 +201,7 @@ def get_pikmin_color_by_name(pikmin_image):
     plt.close()
 
     # Store name of color of pikmin
-    color = store_pikmin_color_by_name(color_templates, color, pikmin_image[150:180,20:140,:])
+    color = store_pikmin_color_by_name(color_templates, color, pikmin_image[170:200,20:140,:])
 
     return color
 
@@ -247,7 +285,7 @@ def crop_image(image_path):
 def check_if_selected(image):
     # Get last line of section
     cropped_bottom = list(image[-1,:,0])
-    print(len(cropped_bottom))
+
     # Get left half and right, ignoring middle in case pikmin
     # below is sticking up
     section_length = int(len(cropped_bottom)/4)
@@ -261,10 +299,45 @@ def check_if_selected(image):
     threshold = 248
     return left_avg < threshold and right_avg < threshold
 
+# Determine what the maturity of the pikmin is
+def get_maturity(pikmin_image):
+    maturity_templates = load_maturity_templates()
+
+    # Convert to grayscale
+    image_gray = rgb2gray(pikmin_image[0:100,:,:])
+
+    # Determine which has a match
+    match_count = {}
+    for key, val in maturity_templates.items():
+        match_count[key] = 0
+        for mapping in val:
+            result = match_template(image_gray, mapping)
+            peaks = peak_local_max(result, threshold_abs=0.8, exclude_border=5)
+            match_count[key] += len( peaks )
+
+    # Check if any matches
+    if max(match_count.values()) < 1:
+        # If no match, ask user for input
+        plt.ion()
+        plt.figure()
+        plt.imshow(image_gray)
+        plt.show()
+        maturity = input("What maturity is this pikmin?")
+        plt.close()
+
+        # Store name of maturity of pikmin
+        maturity = store_pikmin_maturity_by_name(maturity_templates, maturity, pikmin_image[40:80,40:130,:])
+
+        return maturity
+    else:
+        return max(match_count, key=match_count.get)
+
+
 if __name__ == "__main__":
     #path_to_image = "../screenshots/white_not_full.jpg"
     #path_to_image = "../screenshots/full_hearts.jpg"
-    path_to_image = "../screenshots/small_hearts.jpg"
+    #path_to_image = "../screenshots/small_hearts.jpg"
+    path_to_image = "../screenshots/blue_leaves.jpg"
 
     cropped = crop_image(path_to_image)
 
@@ -284,6 +357,7 @@ if __name__ == "__main__":
 
         color = get_pikmin_color_by_name( pikmin_images[i] )
         is_selected = check_if_selected( pikmin_images[i] )
-        print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons : Selected = {is_selected}")
+        maturity = get_maturity( pikmin_images[i] )
+        print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
 
 
