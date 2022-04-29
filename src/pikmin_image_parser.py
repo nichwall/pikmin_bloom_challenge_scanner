@@ -2,6 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import RectangleSelector
 
 from skimage.io import imread, imsave
 from skimage.feature import match_template
@@ -143,10 +144,25 @@ def load_maturity_templates():
     files = glob.glob(custom_template_dir+"maturity_*.jpg")
     for file in files:
         maturity = file.split("maturity_")[-1].split("_")[0]
-        #print(f" Loading custom maturity files: {file}  -> {maturity}")
         maturity_templates[maturity].append( rgb2gray(imread( file )) )
 
     return maturity_templates
+
+def load_decor_templates():
+    # Set up template dictionary
+    decor_templates = {}
+    for key in ["yes"]:
+        decor_templates[key] = []
+
+    # Load custom decor templates
+    custom_template_dir = "../templates/custom/"
+    # Get all custom mapping files
+    files = glob.glob(custom_template_dir+"decor_*.jpg")
+    for file in files:
+        decor = file.split("decor_")[-1].split("_")[0]
+        decor_templates[decor].append( rgb2gray(imread( file )) )
+
+    return decor_templates
 
 
 # Store custom named pikmin for future use
@@ -310,7 +326,8 @@ def get_maturity(pikmin_image):
     maturity_templates = load_maturity_templates()
 
     # Convert to grayscale
-    image_gray = rgb2gray(pikmin_image[0:100,:,:])
+    sub_image = pikmin_image[0:100,:,:]
+    image_gray = rgb2gray(sub_image)
 
     # Determine which has a match
     match_count = {}
@@ -318,21 +335,52 @@ def get_maturity(pikmin_image):
         match_count[key] = 0
         for mapping in val:
             result = match_template(image_gray, mapping)
-            peaks = peak_local_max(result, threshold_abs=0.8, exclude_border=5)
+            peaks = peak_local_max(result, threshold_abs=0.9, exclude_border=5)
             match_count[key] += len( peaks )
 
     # Check if any matches
     if max(match_count.values()) < 1:
         # If no match, ask user for input
         plt.ion()
-        plt.figure()
-        plt.imshow(image_gray)
+        #plt.figure()
+        #plt.imshow(image_gray)
+        #plt.show() 
+
+        fig, ax = plt.subplots()
+        #ax.plot(n)
+        ax.imshow(sub_image)
+        def onselect_function(eclick, erelease):
+            # Obtain (xmin, xmax, ymin, ymax) values
+            # for rectangle selector box using extent attribute.
+            extent = rect_selector.extents
+            print("Extents: ", extent)
+
+            # Zoom the selected part
+            # Set xlim range for plot as xmin to xmax
+            # of rectangle selector box.
+            plt.xlim(extent[0], extent[1])
+
+            # Set ylim range for plot as ymin to ymax
+            # of rectangle selector box.
+            plt.ylim(extent[3], extent[2])
+
+        rect_selector = RectangleSelector(ax, onselect_function, button=[1])
         plt.show()
         maturity = input("What maturity is this pikmin?")
+        print(f" x limits post: {ax.get_xlim()}")
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
+        print(f" x limits post: {[round(x_lim[0]), round(x_lim[1])]}")
+        print(f" y limits post: {[round(y_lim[0]), round(y_lim[1])]}")
+        print(pikmin_image.shape)
+        template_to_add = pikmin_image[ round(x_lim[0]):round(x_lim[1]),
+                                        round(y_lim[1]):round(y_lim[0]), :]
         plt.close()
 
+        print(f" Template shape: {template_to_add.shape}")
+
         # Store name of maturity of pikmin
-        maturity = store_pikmin_maturity_by_name(maturity_templates, maturity, pikmin_image[40:80,40:130,:])
+        maturity = store_pikmin_maturity_by_name(maturity_templates, maturity, template_to_add)
 
         return maturity
     else:
@@ -344,8 +392,6 @@ def identify_image(path_to_image):
 
     # Get heart locations and partition image
     heart_y_coord = get_heart_locations(cropped)
-    print(f" Heart Y Coord: {heart_y_coord}")
-
     pikmin_images = partition_image(cropped, heart_y_coord)
 
     for i in range(len(pikmin_images)):
@@ -367,9 +413,13 @@ def identify_image(path_to_image):
 
 
 if __name__ == "__main__":
-    identify_image("../screenshots/white_not_full.jpg")
-    identify_image("../screenshots/full_hearts.jpg")
-    identify_image("../screenshots/small_hearts.jpg")
-    identify_image("../screenshots/blue_leaves.jpg")
+    #identify_image("../screenshots/white_not_full.jpg")
+    #identify_image("../screenshots/full_hearts.jpg")
+    #identify_image("../screenshots/small_hearts.jpg")
+    #identify_image("../screenshots/blue_leaves.jpg")
+    files = glob.glob("../screenshots/*.jpg")
+    for file in files:
+        print(f" Identifying {file}")
+        identify_image(file)
 
 
