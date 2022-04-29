@@ -53,6 +53,11 @@ def get_heart_locations(image):
     # Get Y coordinate of top of hearts
     heart_y_coord = np.unique( np.transpose(heart_locations)[0] )
     heart_y_coord.sort()
+    # Clean up similar rows
+    for i in range(len(heart_y_coord)-1):
+        if abs(heart_y_coord[i] - heart_y_coord[i+1]) < 5:
+            heart_y_coord[i+1] = heart_y_coord[i]
+    heart_y_coord = np.unique( heart_y_coord )
 
     # TODO get rid of this image plotting
     plt.show()
@@ -234,15 +239,34 @@ def crop_image(image_path):
 
     return cropped
 
+# Determine whether a pikmin has been selected for the challenge
+# based on whether there's a line up the side
+def check_if_selected(image):
+    # TODO this function doesn't work yet
+    # Convert to gray
+    image_gray = rgb2gray(image)
+
+    selected_template = rgb2gray(imread("../templates/selected_side.png")[...,0:3])
+
+    matched = match_template(image_gray, selected_template)
+    peaks = peak_local_max(matched, threshold_abs=0.9, exclude_border=10)
+
+    plt.figure()
+    plt.imshow(image)
+    plt.show()
+
+    return len(peaks) != 0
+
 
 if __name__ == "__main__":
     #path_to_image = "../screenshots/white_not_full.jpg"
-    path_to_image = "../screenshots/full_hearts.jpg"
-    #path_to_image = "../screenshots/small_hearts.jpg"
+    #path_to_image = "../screenshots/full_hearts.jpg"
+    path_to_image = "../screenshots/small_hearts.jpg"
 
     cropped = crop_image(path_to_image)
 
     heart_y_coord = get_heart_locations(cropped)
+    print(f" Heart Y Coord: {heart_y_coord}")
     pikmin_images = partition_image(cropped, heart_y_coord)
 
     print(len(pikmin_images))
@@ -256,6 +280,7 @@ if __name__ == "__main__":
             continue
 
         color = get_pikmin_color_by_name( pikmin_images[i] )
-        print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons")
+        is_selected = check_if_selected( pikmin_images[i] )
+        print(f"Pikmin {str(i).rjust(2)} is {color.rjust(7)} with {pikmin_hearts} heart icons : Selected = {is_selected}")
 
 
