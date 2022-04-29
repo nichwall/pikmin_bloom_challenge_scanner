@@ -227,29 +227,35 @@ def get_pikmin_heart_icon_count(pikmin_image):
             heart_locations.append([x,y])
     # Get full heart locations
     full_heart_locations = []
-    for x,y in peak_local_max(results[0], threshold_abs=0.9, exclude_border=10):
-        full_heart_locations.append(y)
+    for y,x in peak_local_max(results[0], threshold_abs=0.9, exclude_border=10):
+        full_heart_locations.append(x)
     if len(full_heart_locations) != 0:
         last_full_position = max(full_heart_locations)
     else:
         last_full_position = 0
-
 
     # Get X coordinate of left heart
     try:
         heart_x_coord = np.unique( np.transpose(heart_locations)[1] )
         heart_x_coord.sort()
         left_heart = heart_x_coord[0]
-        #print(f"Heart locations: {heart_x_coord}")
+
+        # Check if last full position is full or empty by
+        # checking if Green channel is less than 150
+        x_pos = heart_x_coord[-1] + 6
+        y_pos = heart_locations[0][0] + 4
+        is_empty = pikmin_image[y_pos,x_pos,1] > 150
 
         # Convert to number of hearts
-        # TODO this does not detect whether the last heart is empty
         if left_heart < 43:
             # Check if last heart is a full heart
-            if last_full_position > 105:
+            if last_full_position > 105 and not is_empty:
+                # Check RGB of center of this heart to see
+                # if it's full or empty
                 return 4
             else:
                 return 3
+        # TODO need to check if these are actually one friendship lower
         elif left_heart < 57:
             return 2
         elif left_heart < 67:
