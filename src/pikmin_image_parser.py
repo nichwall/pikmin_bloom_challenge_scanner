@@ -338,20 +338,15 @@ def get_maturity(pikmin_image):
     else:
         return max(match_count, key=match_count.get)
 
-
-if __name__ == "__main__":
-    #path_to_image = "../screenshots/white_not_full.jpg"
-    #path_to_image = "../screenshots/full_hearts.jpg"
-    #path_to_image = "../screenshots/small_hearts.jpg"
-    path_to_image = "../screenshots/blue_leaves.jpg"
-
+def identify_image(path_to_image):
+    # Crop image to get rid of location/system buttons
     cropped = crop_image(path_to_image)
 
+    # Get heart locations and partition image
     heart_y_coord = get_heart_locations(cropped)
     print(f" Heart Y Coord: {heart_y_coord}")
-    pikmin_images = partition_image(cropped, heart_y_coord)
 
-    print(len(pikmin_images))
+    pikmin_images = partition_image(cropped, heart_y_coord)
 
     for i in range(len(pikmin_images)):
         pikmin_hearts = get_pikmin_heart_icon_count( pikmin_images[i] )
@@ -364,6 +359,17 @@ if __name__ == "__main__":
         color = get_pikmin_color_by_name( pikmin_images[i] )
         is_selected = check_if_selected( pikmin_images[i] )
         maturity = get_maturity( pikmin_images[i] )
+        # TODO get decor
         print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
+
+    # TODO save data to CSV
+    # TODO create function to compare to other screenshots
+
+
+if __name__ == "__main__":
+    identify_image("../screenshots/white_not_full.jpg")
+    identify_image("../screenshots/full_hearts.jpg")
+    identify_image("../screenshots/small_hearts.jpg")
+    identify_image("../screenshots/blue_leaves.jpg")
 
 
