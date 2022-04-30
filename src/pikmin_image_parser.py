@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RectangleSelector
+from matplotlib.widgets import RectangleSelector, Button, RadioButtons
 
 from skimage.io import imread, imsave
 from skimage.feature import match_template
@@ -25,6 +25,11 @@ def load_heart_templates():
     # Return array of templates
     return heart_templates
 
+# Given an image, figure out how many pixels wide
+# each column is and relative positions of notable
+# features
+def calculate_partition_dimensions(full_image):
+    pass
 
 # Accepts path of image to scan
 def get_heart_locations(image):
@@ -83,9 +88,6 @@ def partition_image(image, heart_y_coord):
     # Partition bottom
     # down ~20
     partition_bot = heart_y_coord + 30
-
-    # Get image shape
-    print(f"Image shape: {image.shape}")
 
     # Iterate through pikmin for cropping
     # TODO these partitions need to be changed dynamically for screen size
@@ -165,30 +167,89 @@ def load_decor_templates():
     return decor_templates
 
 
-# Store custom named pikmin for future use
-def store_pikmin_color_by_name(color_templates, color, image):
-    # Sanitize the color
-    color = ''.join([i for i in color if i.isalpha()]).lower()
+# Store user defined pikmin attributes
+def store_pikmin_attribute(templates, attribute_name, key, image):
+    # Sanitize key
+    key = ''.join([i for i in key if i.isalpha()]).lower()
     # Figure out how many templates already exist for this pikmin
-    color_count = len(color_templates[color])
+    count = len(templates[key])
     # Name of file to save in
-    fname = "../templates/custom/color_" + color + "_" + str(color_count) + ".jpg"
+    fname = f"../templates/custom/{attribute_name}_{key}_{str(count)}.jpg"
     # Save file
     imsave(fname, image)
 
-    return color
+    return key
 
-def store_pikmin_maturity_by_name(maturity_templates, maturity, image):
-    # Sanitize the color
-    maturity = ''.join([i for i in maturity if i.isalpha()]).lower()
-    # Figure out how many templates already exist for this pikmin
-    maturity_count = len(maturity_templates[maturity])
-    # Name of file to save in
-    fname = "../templates/custom/maturity_" + maturity + "_" + str(maturity_count) + ".jpg"
-    # Save file
-    imsave(fname, image)
+# Prompt user to select the maturity of the pikmin
+# for better performance
+def prompt_user_maturity(image, maturity_templates):
+    def onselect_function(eclick, erelease):
+        # Obtain (xmin, xmax, ymin, ymax) values
+        # for rectangle selector box using extent attribute.
+        extent = rect_selector.extents
+
+        # Zoom the selected part
+        # Set xlim range for plot as xmin to xmax
+        # of rectangle selector box.
+        plt.xlim(extent[0], extent[1])
+
+        # Set ylim range for plot as ymin to ymax
+        # of rectangle selector box.
+        plt.ylim(extent[3], extent[2])
+    def submit_classification(val):
+        # Determine radio selection
+        maturity = radio_button.value_selected
+
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
+        template_to_add = image[ round(x_lim[0]):round(x_lim[1]),
+                                 round(y_lim[1]):round(y_lim[0]), :]
+        plt.close()
+
+        maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
+
+        return maturity
+
+    # Run in loop in case user closes window
+    #while True:
+    # Display
+    plt.ion()
+    fix, ax = plt.subplots()
+    ax.imshow(image)
+    plt.title("Classify Maturity")
+
+    # Create radio
+    #rax = plt.axes([0.1, 0.15, 0.2, 0.2])
+    #radio_button = RadioButtons(rax, ["bare", "leaf", "bud", "normal", "rare"])
+
+    # Create button
+    #bax = plt.axes([0.5, 0.15, 0.2, 0.2])
+    #submit = Button(bax, "Classify")
+    #submit.on_clicked(submit_classification)
+
+    rect_selector = RectangleSelector(ax, onselect_function, button=[1])
+
+    plt.show()
+    maturity = input("Enter maturity of pikmin (after selecting in window)")
+
+    x_lim = ax.get_xlim()
+    y_lim = ax.get_ylim()
+    print(f" x_lim: {x_lim}")
+    print(f" y_lim: {y_lim}")
+    template_to_add = image[ round(y_lim[1]):round(y_lim[0]),
+                             round(x_lim[0]):round(x_lim[1]), :]
+
+    maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
+
+    plt.close()
+
+    plt.figure()
+    plt.imshow(template_to_add)
+    plt.show()
 
     return maturity
+
+
 
 
 # Determine what color the pikmin is
@@ -217,7 +278,7 @@ def get_pikmin_color_by_name(pikmin_image):
     plt.close()
 
     # Store name of color of pikmin
-    color = store_pikmin_color_by_name(color_templates, color, pikmin_image[170:200,20:140,:])
+    color = store_pikmin_attribute(color_templates, "color", color, pikmin_image[170:200,20:140,:])
 
     return color
 
@@ -340,11 +401,10 @@ def get_maturity(pikmin_image):
 
     # Check if any matches
     if max(match_count.values()) < 1:
+        return prompt_user_maturity(sub_image, maturity_templates)
+        """
         # If no match, ask user for input
         plt.ion()
-        #plt.figure()
-        #plt.imshow(image_gray)
-        #plt.show() 
 
         fig, ax = plt.subplots()
         #ax.plot(n)
@@ -353,7 +413,6 @@ def get_maturity(pikmin_image):
             # Obtain (xmin, xmax, ymin, ymax) values
             # for rectangle selector box using extent attribute.
             extent = rect_selector.extents
-            print("Extents: ", extent)
 
             # Zoom the selected part
             # Set xlim range for plot as xmin to xmax
@@ -367,22 +426,17 @@ def get_maturity(pikmin_image):
         rect_selector = RectangleSelector(ax, onselect_function, button=[1])
         plt.show()
         maturity = input("What maturity is this pikmin?")
-        print(f" x limits post: {ax.get_xlim()}")
         x_lim = ax.get_xlim()
         y_lim = ax.get_ylim()
-        print(f" x limits post: {[round(x_lim[0]), round(x_lim[1])]}")
-        print(f" y limits post: {[round(y_lim[0]), round(y_lim[1])]}")
-        print(pikmin_image.shape)
         template_to_add = pikmin_image[ round(x_lim[0]):round(x_lim[1]),
                                         round(y_lim[1]):round(y_lim[0]), :]
         plt.close()
 
-        print(f" Template shape: {template_to_add.shape}")
-
         # Store name of maturity of pikmin
-        maturity = store_pikmin_maturity_by_name(maturity_templates, maturity, template_to_add)
+        maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
 
         return maturity
+        """
     else:
         return max(match_count, key=match_count.get)
 
