@@ -187,68 +187,46 @@ def prompt_user_maturity(image, maturity_templates):
         # Obtain (xmin, xmax, ymin, ymax) values
         # for rectangle selector box using extent attribute.
         extent = rect_selector.extents
-
-        # Zoom the selected part
-        # Set xlim range for plot as xmin to xmax
-        # of rectangle selector box.
-        plt.xlim(extent[0], extent[1])
-
-        # Set ylim range for plot as ymin to ymax
-        # of rectangle selector box.
-        plt.ylim(extent[3], extent[2])
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[3], extent[2])
     def submit_classification(val):
-        # Determine radio selection
-        maturity = radio_button.value_selected
-
-        x_lim = ax.get_xlim()
-        y_lim = ax.get_ylim()
-        template_to_add = image[ round(x_lim[0]):round(x_lim[1]),
-                                 round(y_lim[1]):round(y_lim[0]), :]
+        # Close window once user presses "Classify"
         plt.close()
-
-        maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
-
-        return maturity
 
     # Run in loop in case user closes window
     #while True:
     # Display
-    plt.ion()
+    #plt.ion()
     fix, ax = plt.subplots()
     ax.imshow(image)
     plt.title("Classify Maturity")
 
     # Create radio
-    #rax = plt.axes([0.1, 0.15, 0.2, 0.2])
-    #radio_button = RadioButtons(rax, ["bare", "leaf", "bud", "normal", "rare"])
+    rax = plt.axes([0.1, 0.15, 0.2, 0.2])
+    radio_button = RadioButtons(rax, ["bare", "leaf", "bud", "normal", "rare"])
 
     # Create button
-    #bax = plt.axes([0.5, 0.15, 0.2, 0.2])
-    #submit = Button(bax, "Classify")
-    #submit.on_clicked(submit_classification)
+    bax = plt.axes([0.5, 0.15, 0.2, 0.2])
+    submit = Button(bax, "Classify")
+    submit.on_clicked(submit_classification)
 
+    # Rect selector for zooming
     rect_selector = RectangleSelector(ax, onselect_function, button=[1])
 
+    # Wait for user to "Classify"
     plt.show()
-    maturity = input("Enter maturity of pikmin (after selecting in window)")
+    maturity = radio_button.value_selected
 
+    # Extract feature
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()
-    print(f" x_lim: {x_lim}")
-    print(f" y_lim: {y_lim}")
     template_to_add = image[ round(y_lim[1]):round(y_lim[0]),
                              round(x_lim[0]):round(x_lim[1]), :]
 
+    # Store and return maturity
     maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
-
     plt.close()
-
-    plt.figure()
-    plt.imshow(template_to_add)
-    plt.show()
-
     return maturity
-
 
 
 
@@ -402,41 +380,6 @@ def get_maturity(pikmin_image):
     # Check if any matches
     if max(match_count.values()) < 1:
         return prompt_user_maturity(sub_image, maturity_templates)
-        """
-        # If no match, ask user for input
-        plt.ion()
-
-        fig, ax = plt.subplots()
-        #ax.plot(n)
-        ax.imshow(sub_image)
-        def onselect_function(eclick, erelease):
-            # Obtain (xmin, xmax, ymin, ymax) values
-            # for rectangle selector box using extent attribute.
-            extent = rect_selector.extents
-
-            # Zoom the selected part
-            # Set xlim range for plot as xmin to xmax
-            # of rectangle selector box.
-            plt.xlim(extent[0], extent[1])
-
-            # Set ylim range for plot as ymin to ymax
-            # of rectangle selector box.
-            plt.ylim(extent[3], extent[2])
-
-        rect_selector = RectangleSelector(ax, onselect_function, button=[1])
-        plt.show()
-        maturity = input("What maturity is this pikmin?")
-        x_lim = ax.get_xlim()
-        y_lim = ax.get_ylim()
-        template_to_add = pikmin_image[ round(x_lim[0]):round(x_lim[1]),
-                                        round(y_lim[1]):round(y_lim[0]), :]
-        plt.close()
-
-        # Store name of maturity of pikmin
-        maturity = store_pikmin_attribute(maturity_templates, "maturity", maturity, template_to_add)
-
-        return maturity
-        """
     else:
         return max(match_count, key=match_count.get)
 
