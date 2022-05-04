@@ -100,6 +100,11 @@ def partition_image(image, heart_y_coord):
                 continue
 
             pikmin_image = image[partition_top[row_idx]:partition_bot[row_idx], partition_sides[col_idx]:partition_sides[col_idx+1]]
+            # Check if blank spot
+            avg_value = np.average(pikmin_image[100:200, 50:150, :])
+            if (avg_value > 253):
+                continue
+
             pikmin_images.append(pikmin_image)
 
 
@@ -126,6 +131,22 @@ def get_pikmin_color_map():
         color_templates[color].append( rgb2gray(imread( file )) )
 
     return color_templates
+
+def load_friendship_templates():
+    # Set up template dictionary
+    friendship_templates = {}
+    for key in ["-1", "0", "1", "2", "3", "4"]:
+        friendship_templates[key] = []
+
+    # Load custom friendship templates
+    custom_template_dir = "../templates/custom/"
+    # Get all custom mapping files
+    files = glob.glob(custom_template_dir+"friendship_*.jpg")
+    for file in files:
+        friendship = file.split("friendship_")[-1].split("_")[0]
+        friendship_templates[friendship].append( rgb2gray(imread( file )) )
+
+    return friendship_templates
 
 def load_maturity_templates():
     # Set up template dictionary
@@ -171,7 +192,7 @@ def load_decor_templates():
 # Store user defined pikmin attributes
 def store_pikmin_attribute(templates, attribute_name, key, image):
     # Sanitize key
-    key = ''.join([i for i in key if i.isalpha()]).lower()
+    key = ''.join([i for i in key if i.isalnum() or i == "-"]).lower()
     # Figure out how many templates already exist for this pikmin
     count = len(templates[key])
     # Name of file to save in
@@ -255,12 +276,66 @@ def prompt_user_color(image, color_templates):
         color = radio_button.value_selected
 
     # Extract feature
-    template_to_add = image[170:200, 20:140, :]
+    #template_to_add = image[170:200, 20:140, :]
+    template_to_add = image[190:220, 20:140, :]
 
     # Store and return maturity
     color = store_pikmin_attribute(color_templates, "color", color, template_to_add)
 
     return color
+
+def prompt_user_friendship(image, friendship_templates):
+    def onselect_function(eclick, erelease):
+        # Obtain (xmin, xmax, ymin, ymax) values
+        # for rectangle selector box using extent attribute.
+        extent = rect_selector.extents
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[3], extent[2])
+    def submit_classification(val):
+        # Close window once user presses "Classify"
+        plt.close()
+
+    friendship = None
+    while friendship is None:
+        # Display
+        fix, ax = plt.subplots()
+        ax.imshow(image)
+        plt.title("Select Friendship")
+
+        # Create radio
+        rax = plt.axes([0.1, 0.15, 0.2, 0.2])
+        radio_button = RadioButtons(rax, ["-1","0","1","2","3","4"], active=None)
+
+        # Create button
+        bax = plt.axes([0.1, 0.5, 0.15, 0.1])
+        submit = Button(bax, "Classify")
+        submit.on_clicked(submit_classification)
+
+        # Rect selector for zooming
+        rect_selector = RectangleSelector(ax, onselect_function, button=[1])
+
+        # Wait for user to "Classify"
+        plt.show()
+        friendship = radio_button.value_selected
+        # Check if not zoomed
+        if ax.get_xlim()[0] < 5 or ax.get_ylim()[1] < 5:
+            friendship = None
+        print(f"Friendship: {friendship}")
+
+    # Extract feature
+    x_lim = ax.get_xlim()
+    y_lim = ax.get_ylim()
+    template_to_add = image[ round(y_lim[1]):round(y_lim[0]),
+                             round(x_lim[0]):round(x_lim[1]), :]
+
+    # Extract feature
+    #template_to_add = image[170:200, 20:140, :]
+    #template_to_add = image[230:260, 25:135, :]
+
+    # Store and return maturity
+    friendship = store_pikmin_attribute(friendship_templates, "friendship", friendship, template_to_add)
+
+    return int(friendship)
 
 
 # Determine what color the pikmin is
@@ -339,13 +414,17 @@ def get_pikmin_heart_icon_count(pikmin_image):
         else:
             return 0
     except:
-        plt.figure()
-        plt.imshow(pikmin_image)
-        plt.show()
-        heart_count = int(input("How many hearts? (-1 for nothing)"))
-        plt.close()
+        print("Comparing to previous hearts!")
+        # Check if user has already named the heart count for this pikmin
+        friendship_templates = load_friendship_templates()
+        # Determine which has a match
+        for key, val in friendship_templates.items():
+            for mapping in val:
+                result = match_template(image_gray, mapping)
+                if len( peak_local_max(result, threshold_abs=0.98, exclude_border=20) ) > 0:
+                    return int(key)
 
-        return heart_count
+        return int( prompt_user_friendship(pikmin_image, friendship_templates) )
 
 def crop_image(image_path):
     # TODO need to change this to detect the top and bottom
@@ -415,6 +494,7 @@ def identify_image(path_to_image):
 
         # If no hearts were found, this is because it's hidden behind
         # a button or cut off the screen
+        print(f"Pikmin hearts: {pikmin_hearts}")
         if (pikmin_hearts < 0):
             continue
 
