@@ -318,8 +318,8 @@ def prompt_user_friendship(image, friendship_templates):
         plt.show()
         friendship = radio_button.value_selected
         # Check if not zoomed
-        if ax.get_xlim()[0] < 5 or ax.get_ylim()[1] < 5:
-            friendship = None
+        #if ax.get_xlim()[0] < 5 or ax.get_ylim()[1] < 5:
+            #friendship = None
         print(f"Friendship: {friendship}")
 
     # Extract feature
@@ -333,7 +333,7 @@ def prompt_user_friendship(image, friendship_templates):
     #template_to_add = image[230:260, 25:135, :]
 
     # Store and return maturity
-    friendship = store_pikmin_attribute(friendship_templates, "friendship", friendship, template_to_add)
+    #friendship = store_pikmin_attribute(friendship_templates, "friendship", friendship, template_to_add)
 
     return int(friendship)
 
@@ -414,15 +414,14 @@ def get_pikmin_heart_icon_count(pikmin_image):
         else:
             return 0
     except:
-        print("Comparing to previous hearts!")
         # Check if user has already named the heart count for this pikmin
         friendship_templates = load_friendship_templates()
         # Determine which has a match
-        for key, val in friendship_templates.items():
-            for mapping in val:
-                result = match_template(image_gray, mapping)
-                if len( peak_local_max(result, threshold_abs=0.98, exclude_border=20) ) > 0:
-                    return int(key)
+        #for key, val in friendship_templates.items():
+            #for mapping in val:
+                #result = match_template(image_gray, mapping)
+                #if len( peak_local_max(result, threshold_abs=0.98, exclude_border=20) ) > 0:
+                    #return int(key)
 
         return int( prompt_user_friendship(pikmin_image, friendship_templates) )
 
@@ -490,30 +489,35 @@ def identify_image(path_to_image):
     pikmin_images = partition_image(cropped, heart_y_coord)
 
     for i in range(len(pikmin_images)):
+        # Check if pikmin is selected
+        is_selected = check_if_selected( pikmin_images[i] )
+
         pikmin_hearts = get_pikmin_heart_icon_count( pikmin_images[i] )
 
         # If no hearts were found, this is because it's hidden behind
         # a button or cut off the screen
-        print(f"Pikmin hearts: {pikmin_hearts}")
+        #print(f"Pikmin hearts: {pikmin_hearts}")
         if (pikmin_hearts < 0):
             continue
 
         color = get_color( pikmin_images[i] )
-        #is_selected = check_if_selected( pikmin_images[i] )
-        #maturity = get_maturity( pikmin_images[i] )
+        maturity = get_maturity( pikmin_images[i] )
         # TODO get decor
         #print(f"is selecetd: {is_selected}")
-        #print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
+        print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
 
     # TODO save data to CSV
     # TODO create function to compare to other screenshots
 
 
 if __name__ == "__main__":
-    #identify_image("../screenshots/white_not_full.jpg")
+    identify_image("../screenshots/white_not_full.jpg")
     #identify_image("../screenshots/full_hearts.jpg")
     #identify_image("../screenshots/small_hearts.jpg")
     #identify_image("../screenshots/blue_leaves.jpg")
+    #identify_image("../screenshots/Screenshot_20220325-232646.jpg")
+
+    exit()
     files = glob.glob("../screenshots/*.jpg")
     for file in files:
         print(f" Identifying {file}")
