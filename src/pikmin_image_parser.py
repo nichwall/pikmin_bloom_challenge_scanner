@@ -43,17 +43,17 @@ def get_heart_locations(image):
         results.append( match_template(image_gray, val) )
 
     # Show image
-    fig = plt.figure(figsize=(1,1))
-    ax1 = plt.subplot(1,1,1)
-    ax1.imshow(image, cmap=plt.cm.gray)
+    #fig = plt.figure(figsize=(1,1))
+    #ax1 = plt.subplot(1,1,1)
+    #ax1.imshow(image, cmap=plt.cm.gray)
 
     # Get heart locations and draw them on the image
     heart_locations = []
     for template_result in results:
         template_h, template_w = heart_templates["full"].shape
         for x,y in peak_local_max(template_result, threshold_abs=0.9, exclude_border=20):
-            rect = plt.Rectangle((y, x), template_w, template_h, edgecolor='g', facecolor='none')
-            ax1.add_patch(rect)
+            #rect = plt.Rectangle((y, x), template_w, template_h, edgecolor='g', facecolor='none')
+            #ax1.add_patch(rect)
             heart_locations.append([x,y])
 
     # Get Y coordinate of top of hearts
@@ -66,7 +66,7 @@ def get_heart_locations(image):
     heart_y_coord = np.unique( heart_y_coord )
 
     # TODO get rid of this image plotting
-    plt.show()
+    #plt.show()
 
     return heart_y_coord
 
@@ -83,11 +83,12 @@ def partition_image(image, heart_y_coord):
 
     # Partition top
     # up ~200
-    partition_top = heart_y_coord - 220
+    #partition_top = heart_y_coord - 220
+    partition_top = heart_y_coord - int(9/10*heart_y_dist)
 
     # Partition bottom
     # down ~20
-    partition_bot = heart_y_coord + 30
+    partition_bot = heart_y_coord + int(1/8*heart_y_dist)
 
     # Iterate through pikmin for cropping
     # TODO these partitions need to be changed dynamically for screen size
@@ -101,6 +102,7 @@ def partition_image(image, heart_y_coord):
 
             pikmin_image = image[partition_top[row_idx]:partition_bot[row_idx], partition_sides[col_idx]:partition_sides[col_idx+1]]
             pikmin_images.append(pikmin_image)
+
 
     return pikmin_images
 
@@ -228,11 +230,41 @@ def prompt_user_maturity(image, maturity_templates):
     plt.close()
     return maturity
 
+def prompt_user_color(image, color_templates):
+    def submit_classification(val):
+        # Close window once user presses "Classify"
+        plt.close()
+
+    # Display
+    fix, ax = plt.subplots()
+    ax.imshow(image)
+    plt.title("Select Color")
+
+    # Create radio
+    rax = plt.axes([0.1, 0.15, 0.2, 0.2])
+    radio_button = RadioButtons(rax, ["Red","Blue","Yellow","Purple","White","Rock","Winged"])
+
+    # Create button
+    bax = plt.axes([0.5, 0.15, 0.2, 0.2])
+    submit = Button(bax, "Classify")
+    submit.on_clicked(submit_classification)
+
+    # Wait for user to "Classify"
+    plt.show()
+    color = radio_button.value_selected
+
+    # Extract feature
+    template_to_add = image[170:200, 20:140, :]
+
+    # Store and return maturity
+    color = store_pikmin_attribute(color_templates, "color", color, template_to_add)
+    plt.close()
+    return color
 
 
 # Determine what color the pikmin is
 # based on the name
-def get_pikmin_color_by_name(pikmin_image):
+def get_color(pikmin_image):
     # Load color templates and convert to grayscale
     color_templates = get_pikmin_color_map()
 
@@ -246,19 +278,7 @@ def get_pikmin_color_by_name(pikmin_image):
             if len( peak_local_max(result, threshold_abs=0.9, exclude_border=20) ) > 0:
                 return key
 
-    # If no match, ask user for input
-    plt.ion()
-    plt.figure()
-    plt.imshow(pikmin_image)
-    plt.show()
-
-    color = input("What color is this pikmin?")
-    plt.close()
-
-    # Store name of color of pikmin
-    color = store_pikmin_attribute(color_templates, "color", color, pikmin_image[170:200,20:140,:])
-
-    return color
+    return prompt_user_color(pikmin_image, color_templates)
 
 
 # Determine how many friendship hearts the Pikmin
@@ -318,7 +338,6 @@ def get_pikmin_heart_icon_count(pikmin_image):
         else:
             return 0
     except:
-        plt.ion()
         plt.figure()
         plt.imshow(pikmin_image)
         plt.show()
@@ -340,9 +359,6 @@ def crop_image(image_path):
 
 # Determine whether a pikmin has been selected for the challenge
 # based on average color of bottom line of partitioned area
-# 
-# TODO definitely need to figure out a better way to do this for
-#      other sized images
 def check_if_selected(image):
     # Get last line of section
     cropped_bottom = list(image[-1,:,0])
@@ -358,7 +374,7 @@ def check_if_selected(image):
     right_avg = np.average(right_pixels)
 
     threshold = 248
-    return left_avg < threshold and right_avg < threshold
+    return left_avg < threshold or right_avg < threshold
 
 # Determine what the maturity of the pikmin is
 def get_maturity(pikmin_image):
@@ -373,6 +389,7 @@ def get_maturity(pikmin_image):
     for key, val in maturity_templates.items():
         match_count[key] = 0
         for mapping in val:
+            print(f" Gray shape: {image_gray.shape}    Mapping shape: {mapping.shape}")
             result = match_template(image_gray, mapping)
             peaks = peak_local_max(result, threshold_abs=0.9, exclude_border=5)
             match_count[key] += len( peaks )
@@ -389,6 +406,7 @@ def identify_image(path_to_image):
 
     # Get heart locations and partition image
     heart_y_coord = get_heart_locations(cropped)
+    print(f"y coord: {heart_y_coord}")
     pikmin_images = partition_image(cropped, heart_y_coord)
 
     for i in range(len(pikmin_images)):
@@ -399,11 +417,12 @@ def identify_image(path_to_image):
         if (pikmin_hearts < 0):
             continue
 
-        color = get_pikmin_color_by_name( pikmin_images[i] )
+        #color = get_color( pikmin_images[i] )
         is_selected = check_if_selected( pikmin_images[i] )
         maturity = get_maturity( pikmin_images[i] )
         # TODO get decor
-        print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
+        print(f"is selecetd: {is_selected}")
+        #print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
 
     # TODO save data to CSV
     # TODO create function to compare to other screenshots
