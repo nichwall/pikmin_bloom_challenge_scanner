@@ -14,7 +14,6 @@ from scipy import stats
 import csv
 import glob
 
-
 # Load templates and return in an array
 def load_heart_templates():
     # Load templates and convert to grayscale
@@ -208,7 +207,7 @@ def prompt_user_maturity(image, maturity_templates):
     radio_button = RadioButtons(rax, ["bare", "leaf", "bud", "normal", "rare"])
 
     # Create button
-    bax = plt.axes([0.5, 0.15, 0.2, 0.2])
+    bax = plt.axes([0.1, 0.5, 0.15, 0.1])
     submit = Button(bax, "Classify")
     submit.on_clicked(submit_classification)
 
@@ -235,30 +234,32 @@ def prompt_user_color(image, color_templates):
         # Close window once user presses "Classify"
         plt.close()
 
-    # Display
-    fix, ax = plt.subplots()
-    ax.imshow(image)
-    plt.title("Select Color")
+    color = None
+    while color == None:
+        # Display
+        fix, ax = plt.subplots()
+        ax.imshow(image)
+        plt.title("Select Color")
 
-    # Create radio
-    rax = plt.axes([0.1, 0.15, 0.2, 0.2])
-    radio_button = RadioButtons(rax, ["Red","Blue","Yellow","Purple","White","Rock","Winged"])
+        # Create radio
+        rax = plt.axes([0.1, 0.15, 0.2, 0.2])
+        radio_button = RadioButtons(rax, ["Red","Blue","Yellow","Purple","White","Rock","Winged"], active=None)
 
-    # Create button
-    bax = plt.axes([0.5, 0.15, 0.2, 0.2])
-    submit = Button(bax, "Classify")
-    submit.on_clicked(submit_classification)
+        # Create button
+        bax = plt.axes([0.1, 0.5, 0.15, 0.1])
+        submit = Button(bax, "Classify")
+        submit.on_clicked(submit_classification)
 
-    # Wait for user to "Classify"
-    plt.show()
-    color = radio_button.value_selected
+        # Wait for user to "Classify"
+        plt.show()
+        color = radio_button.value_selected
 
     # Extract feature
     template_to_add = image[170:200, 20:140, :]
 
     # Store and return maturity
     color = store_pikmin_attribute(color_templates, "color", color, template_to_add)
-    plt.close()
+
     return color
 
 
@@ -389,7 +390,7 @@ def get_maturity(pikmin_image):
     for key, val in maturity_templates.items():
         match_count[key] = 0
         for mapping in val:
-            print(f" Gray shape: {image_gray.shape}    Mapping shape: {mapping.shape}")
+            #print(f" Gray shape: {image_gray.shape}    Mapping shape: {mapping.shape}")
             result = match_template(image_gray, mapping)
             peaks = peak_local_max(result, threshold_abs=0.9, exclude_border=5)
             match_count[key] += len( peaks )
@@ -417,11 +418,11 @@ def identify_image(path_to_image):
         if (pikmin_hearts < 0):
             continue
 
-        #color = get_color( pikmin_images[i] )
-        is_selected = check_if_selected( pikmin_images[i] )
-        maturity = get_maturity( pikmin_images[i] )
+        color = get_color( pikmin_images[i] )
+        #is_selected = check_if_selected( pikmin_images[i] )
+        #maturity = get_maturity( pikmin_images[i] )
         # TODO get decor
-        print(f"is selecetd: {is_selected}")
+        #print(f"is selecetd: {is_selected}")
         #print(f"Pikmin {str(i).rjust(2)} is a {color.rjust(7)} with {maturity.rjust(6)} and {pikmin_hearts} heart icons : Selected = {is_selected}")
 
     # TODO save data to CSV
